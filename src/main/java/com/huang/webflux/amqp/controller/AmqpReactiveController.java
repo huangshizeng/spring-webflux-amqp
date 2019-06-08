@@ -28,13 +28,13 @@ public class AmqpReactiveController {
 
     @GetMapping(value = "listener", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> receiveMessagesFromQueue(@RequestParam String queueName) {
-        MessageListenerContainer mlc = messageListenerContainerFactory.createMessageListenerContainer(queueName);
+        MessageListenerContainer container = messageListenerContainerFactory.createMessageListenerContainer(queueName);
         return Flux.create(emitter -> {
             log.info("开始监听, queue={}", queueName);
-            mlc.setupMessageListener((ChannelAwareMessageListener) (message, channle) -> {
+            container.setupMessageListener((ChannelAwareMessageListener) (message, channle) -> {
                 if (emitter.isCancelled()) {
                     log.info("停止消费, queue={}", queueName);
-                    mlc.stop();
+                    container.stop();
                     return;
                 }
                 String payload = new String(message.getBody());
@@ -42,10 +42,10 @@ public class AmqpReactiveController {
                 log.info("收到来自{}的消息：{}", queueName, payload);
                 channle.basicAck(message.getMessageProperties().getDeliveryTag(), false);
             });
-            emitter.onRequest(v -> mlc.start());
+            emitter.onRequest(v -> container.start());
             emitter.onDispose(() -> {
                 log.info("停止消费: queue={}", queueName);
-                mlc.stop();
+                container.stop();
             });
         });
     }
